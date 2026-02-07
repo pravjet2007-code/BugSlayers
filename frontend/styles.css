@@ -30,12 +30,68 @@ body {
     background: var(--white);
 }
 
-.landing-title {
-    font-size: 4rem;
-    font-weight: 700;
-    color: var(--base-400);
-    opacity: 0.1;
+/* ===== SPLINE 3D VIEWER ===== */
+spline-viewer {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 10;
+    pointer-events: auto;
+    /* Allow clicks to pass through to text if needed, or 'auto' if model needs interaction */
+}
+
+
+/* ===== HERO HEADING - BOLD MULTI-FONT CREATIVE ===== */
+.hero-heading {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    z-index: 0;
+    width: 100%;
+}
+
+.hero-line {
+    font-family: 'Silkscreen', cursive;
+    font-size: 11rem;
+    font-weight: 900;
+    line-height: 1;
+    margin: 0;
+    color: #0a0a0f;
+    -webkit-text-stroke: 4px transparent;
+    /* Thicken the font */
     letter-spacing: -0.05em;
+    opacity: 0;
+    transform: translateY(20px);
+    animation: slideInRight 1s ease forwards;
+}
+
+.highlight {
+    color: red;
+    display: inline-block;
+    /* Ensure transforms work on spans */
+}
+
+/* Different font for each line */
+.hero-line:nth-child(1) {
+    font-weight: 400;
+    animation-delay: 0.2s;
+}
+
+.hero-line:nth-child(2) {
+    font-weight: 400;
+    animation-delay: 0.4s;
+}
+
+
+@keyframes slideInRight {
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
 }
 
 /* ===== DRAGGABLE MENU DRAWER ===== */
@@ -67,8 +123,8 @@ body {
 
 /* ===== MENU LOGO ===== */
 .menu-logo {
-    width: 8rem;
-    height: 4.5rem;
+    width: 10rem;
+    height: 5.5rem;
     border-radius: 4rem;
     display: flex;
     justify-content: center;
@@ -78,7 +134,7 @@ body {
 }
 
 .menu-logo img {
-    width: 5rem;
+    width: 6.5rem;
     height: auto;
 }
 
@@ -100,7 +156,7 @@ body {
 
 .menu-item {
     width: max-content;
-    height: 4.5rem;
+    height: 5.5rem;
     background-color: var(--base-100);
     border-radius: 4rem;
     display: flex;
@@ -131,9 +187,9 @@ body {
     text-decoration: none;
     color: var(--base-400);
     font-weight: 500;
-    font-size: 0.95rem;
+    font-size: 1.15rem;
     letter-spacing: -0.01rem;
-    padding: 0 1.5rem;
+    padding: 0 2rem;
     user-select: none;
     transition: color 0.2s ease;
 }
@@ -145,16 +201,16 @@ body {
 /* ===== MENU TOGGLER ===== */
 .menu-toggler {
     position: relative;
-    width: 4.5rem;
-    height: 4.5rem;
-    padding: 1.35rem;
+    width: 5.5rem;
+    height: 5.5rem;
+    padding: 1.65rem;
     background-color: var(--base-300);
     border-radius: 4rem;
     display: flex;
     flex-direction: column;
     justify-content: center;
     align-items: center;
-    gap: 0.3rem;
+    gap: 0.4rem;
     flex-shrink: 0;
     cursor: pointer;
     transition: background-color 0.3s ease;
@@ -171,9 +227,9 @@ body {
 .menu-toggler span {
     position: relative;
     width: 100%;
-    height: 0.18rem;
+    height: 0.22rem;
     background-color: var(--base-400);
-    border-radius: 0.1rem;
+    border-radius: 0.15rem;
     transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
         background-color 0.3s ease;
     transform-origin: center;
