@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent Command Center</title>
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+
+    <!-- CSS -->
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="dashboard-premium.css">
+    <link rel="stylesheet" href="dashboard-responsive.css">
+
+    <!-- GSAP -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+
+    <!-- Feather Icons -->
+    <script src="https://unpkg.com/feather-icons"></script>
+    <!-- Mermaid JS -->
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+</head>
+
+<body class="dashboard-body">
+
+
+    <div class="dashboard-container">
+        <!-- Ambient Background -->
+        <div id="ambient-bg"></div>
+
+        <header class="dashboard-header">
+            <div class="header-left">
+                <a href="/" class="back-link">
+                    <span class="link-arrow">←</span> BACK TO BASE
+                </a>
+            </div>
+            <div class="header-center">
+                <h1>MISSION CONTROL</h1>
+                <div class="header-line"></div>
+            </div>
+            <div class="header-right">
+                <div class="status-indicator">
+                    <span class="status-text">SYSTEM STATUS</span>
+                    <span class="status-dot pulse"></span>
+                    <span id="connection-status" class="status-val">ONLINE</span>
+                </div>
+            </div>
+        </header>
+
+        <main class="dashboard-content">
+            <!-- Active Tasks Grid -->
+            <section class="tasks-section">
+                <!-- <h2>Active Operations</h2> Removed for cleaner look -->
+                <div id="tasks-grid" class="tasks-grid">
+                    <!-- Dynamic Task Cards will appear here -->
+                    <div class="empty-state">
+                        <div class="empty-visual"></div>
+                        <p>AWAITING MISSION PROTOCOLS</p>
+                        <span class="sub-empty">Deploy an agent to initialize data stream</span>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Task Detail Modal -->
+    <div id="task-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div>
+                    <h3 id="modal-title">Operation Details</h3>
+                    <span id="modal-id" class="modal-subtitle">ID: --</span>
+                </div>
+                <!-- Status Badge moved here -->
+                <span class="badge" id="modal-status">RUNNING</span>
+                <button id="close-modal" class="close-btn"><i data-feather="x"></i></button>
+            </div>
+
+            <!-- Tabs -->
+            <div class="modal-tabs">
+                <button class="tab-btn active" data-tab="plan">Trip Plan</button>
+                <button class="tab-btn" data-tab="logs">System Logs</button>
+            </div>
+
+            <div class="modal-body">
+                <!-- Trip Plan View -->
+                <div id="view-plan" class="tab-view active">
+                    <div id="result-area" class="result-area">
+                        <div id="result-json"></div> <!-- Dynamic Content Here -->
+                    </div>
+                </div>
+
+                <!-- System Logs View -->
+                <div id="view-logs" class="tab-view">
+                    <div class="log-console">
+                        <div id="console-output" class="console-output">
+                            <div class="log-line system">> Initializing view...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="dashboard.js"></script>
+    <script>
+        feather.replace();
+    </script>
+</body>
+
+</html>
