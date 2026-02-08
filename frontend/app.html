@@ -6,22 +6,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mission Control | TrioAgent</title>
 
-    <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;500;600&display=swap" rel="stylesheet">
 
-    <!-- CSS -->
     <link rel="stylesheet" href="styles.css">
 
-    <!-- GSAP -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/TextPlugin.min.js"></script>
 </head>
 
 <body>
 
-    <!-- Header -->
     <header class="site-header">
         <div class="logo">NOXIT</div>
         <nav class="nav-links">
@@ -31,7 +27,6 @@
 
     <main class="app-container container">
 
-        <!-- Mode Toggle -->
         <div class="app-mode-toggle">
             <button class="mode-btn active" id="mode-manual_btn">Manual Control</button>
             <button class="mode-btn" id="mode-voice_btn">Voice Command</button>
@@ -39,7 +34,6 @@
 
         <div class="app-interface">
 
-            <!-- Result Panel (Shared) -->
             <div id="result-wrapper" class="hidden" style="margin-bottom: 2rem;">
                 <div class="result-panel">
                     <h4 class="result-title">System Status</h4>
@@ -48,7 +42,6 @@
             </div>
 
 
-            <!-- MODE 1: MANUAL (Persona Selector) -->
             <div id="mode-manual" class="mode-view">
                 <div class="input-group selector-group">
                     <label class="input-label">Select Agent Persona</label>
@@ -70,7 +63,6 @@
                 </div>
 
                 <div id="dynamic-form-container" class="form-container">
-                    <!-- Shopper Form -->
                     <div class="form-content hidden" id="form-shopper">
                         <div class="input-group">
                             <label for="product-name" class="input-label">Target Product</label>
@@ -79,7 +71,6 @@
                         </div>
                     </div>
 
-                    <!-- Rider Form -->
                     <div class="form-content hidden" id="form-rider">
                         <div class="input-group">
                             <label for="pickup-location" class="input-label">Origin</label>
@@ -111,7 +102,6 @@
                         </div>
                     </div>
 
-                    <!-- Patient Form -->
                     <div class="form-content hidden" id="form-patient">
                         <label class="input-label">Prescription List</label>
                         <div id="medicine-list-container">
@@ -127,7 +117,6 @@
                             style="margin-top: 10px; padding: 0.5rem 1rem; font-size: 0.8rem;">+ Add Medicine</button>
                     </div>
 
-                    <!-- Coordinator Form -->
                     <div id="form-coordinator" class="form-content hidden">
                         <div class="input-group">
                             <label class="input-label">Event Name</label>
@@ -145,7 +134,6 @@
                         </div>
                     </div>
 
-                    <!-- Foodie Form -->
                     <div id="form-foodie" class="form-content hidden">
                         <div class="input-group">
                             <label for="food-item" class="input-label">Craving</label>
@@ -164,7 +152,6 @@
                         </div>
                     </div>
 
-                    <!-- Traveller Form -->
                     <div id="form-traveller" class="form-content hidden">
                         <div class="input-group">
                             <label class="input-label">Source</label>
@@ -201,7 +188,6 @@
             </div>
 
 
-            <!-- MODE 2: VOICE -->
             <div id="mode-voice" class="mode-view hidden" style="display: none;">
                 <div class="voice-wrapper">
                     <button id="big-mic-btn" class="big-mic-btn">

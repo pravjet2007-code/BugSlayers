@@ -6,246 +6,181 @@ import re
 import sys
 from dotenv import load_dotenv
 
-# --- DroidRun Professional Architecture Imports ---
-# try:
 from droidrun.agent.droid.droid_agent import DroidAgent
 from droidrun.agent.utils.llm_picker import load_llm
 from droidrun import AdbTools
-# except ImportError:
-#     print("CRITICAL ERROR: 'droidrun' library not found or incompatible version.")
-#     print("Please ensure you have installed it: pip install droidrun")
-#     sys.exit(1)
 
 load_dotenv()
 
 class PharmacyAgent:
-    """
-    Agent to compare medicine prices across PharmEasy, Apollo 24|7, and Tata 1mg.
-    Follows the Professional Architecture.
-    """
-    
     def __init__(self, provider="gemini", model="models/gemini-2.5-flash"):
         self.provider = provider
         self.model = model
         self._ensure_api_keys()
 
     def _ensure_api_keys(self):
-        if self.provider == "gemini" and not os.getenv("GEMINI_API_KEY") and not os.getenv("GOOGLE_API_KEY"):
+        found = False
+        for k in ["GEMINI_API_KEY", "GOOGLE_API_KEY"]:
+            if os.getenv(k):
+                found = True
+                break
+        if self.provider == "gemini" and not found:
              print("[Warn] GEMINI_API_KEY not found in env, checking GOOGLE_API_KEY")
 
     def _parse_price(self, price_str):
         if not price_str: return float('inf')
         try:
-            clean = str(price_str).lower().replace(',', '').replace('₹', '').replace('rs', '').replace('rs.', '').strip()
-            match = re.search(r'\d+(\.\d+)?', clean)
-            return float(match.group()) if match else float('inf')
-        except:
+            return float("".join(filter(lambda x: x.isdigit() or x == '.', str(price_str))))
+        except ValueError:
             return float('inf')
 
     async def execute_task(self, app_name: str, medicine: str, role: str) -> dict:
         print(f"\n[PharmaAgent] Initializing Task for: {app_name} - {medicine} ({role} mode)")
         
-        # Mode-specific instructions
-        if role == "pharmacist":
-            search_instruction = (
-                f"Search for '{medicine}'. "
-                f"Look specifically for 'bulk packs', 'combo packs', 'wholesale', or largest available strip sizes suitable for restocking. "
-                f"If bulk options aren't explicitly labeled, find the standard pack with the best value."
-            )
-            report_instruction = "Report the Price per pack/unit."
-        else:
-            search_instruction = f"Search for '{medicine}'. Identify the exact medicine matching the name and dosage."
-            report_instruction = "Report the Price."
-
+        is_pharmacist = (role == "pharmacist")
+        
+        instr_search = (
+            f"Search for '{medicine}'. Look for bulk/wholesale packs or largest strips."
+            if is_pharmacist else
+            f"Search for '{medicine}'. Identify exact match for name and dosage."
+        )
+        
         goal = (
-            f"Open the app '{app_name}'. "
-            f"If a 'Location Permission' popup appears, click 'While using the app' or 'Allow'. "
-            f"Click on the search bar. "
-            f"{search_instruction} "
-            f"Visually identify the best result. "
-            f"Extract the Price (numeric value). "
-            f"Return a strict JSON object with keys: 'app', 'medicine', 'price', 'details'. "
-            f"Ensure strict JSON format."
+            f"Open '{app_name}'. Handle permissions. "
+            f"Click Search. {instr_search} "
+            f"Visually identify best result. Extract Price (numeric). "
+            f"Return JSON: 'app', 'medicine', 'price', 'details'. Strict JSON."
         )
 
-        # --- Professional Config Setup ---
-        api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
-        provider_name = "GoogleGenAI" if self.provider == "gemini" else self.provider
+        k = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+        prov = "GoogleGenAI" if self.provider == "gemini" else self.provider
 
-        llm = load_llm(
-            provider_name=provider_name,
-            model=self.model,
-            api_key=api_key
-        )
-
-        tools = await AdbTools.create()
+        llm = load_llm(provider_name=prov, model=self.model, api_key=k)
+        tool_set = await AdbTools.create()
 
         agent = DroidAgent(
             goal=goal,
             llm=llm,
-            tools=tools,
+            tools=tool_set,
             vision=True,
             reasoning=False
         )
 
-        result_data = {"app": app_name, "medicine": medicine, "status": "failed", "data": {}, "numeric_price": float('inf')}
+        out_struct = {"app": app_name, "medicine": medicine, "status": "failed", "data": {}, "numeric_price": float('inf')}
 
         try:
             print(f"[PharmaAgent] 🧠 Running Agent on {app_name} for {medicine}...")
-            result = await agent.run()
+            res_obj = await agent.run()
             
-            # --- Robust Output Parsing ---
-            if result:
-                if hasattr(result, 'reason'):
-                     clean_json = str(result.reason).strip()
-                elif hasattr(result, 'message'):
-                     clean_json = str(result.message).strip()
-                else:
-                     clean_json = str(result).strip()
+            if res_obj:
+                txt = str(getattr(res_obj, 'reason', getattr(res_obj, 'message', res_obj))).strip()
 
-                if "<request_accomplished" in clean_json:
-                    try:
-                        clean_json = clean_json.split(">")[1].split("</request_accomplished>")[0].strip()
-                    except IndexError:
-                        pass
+                if "<request_accomplished" in txt:
+                    chunks = txt.split(">")
+                    if len(chunks) > 1:
+                        txt = chunks[1].split("</request_accomplished>")[0].strip()
 
-                if "```json" in clean_json:
-                    clean_json = clean_json.split("```json")[1].split("```")[0].strip()
-                elif "```" in clean_json:
-                    clean_json = clean_json.split("```")[1].split("```")[0].strip()
+                if "```" in txt:
+                    seg = txt.split("```")
+                    txt = seg[1] if len(seg) > 1 else txt
+                    if txt.startswith("json"):
+                        txt = txt[4:].strip()
                 
-                if clean_json.startswith("{"):
+                txt = txt.strip()
+                
+                if txt.startswith("{"):
                     try:
-                        data = json.loads(clean_json)
-                        result_data["data"] = data
-                        result_data["status"] = "success"
-                        result_data["numeric_price"] = self._parse_price(data.get("price"))
+                        d = json.loads(txt)
+                        out_struct["data"] = d
+                        out_struct["status"] = "success"
+                        out_struct["numeric_price"] = self._parse_price(d.get("price"))
                     except json.JSONDecodeError:
-                        print(f"[Warn] JSON Decode Error: {clean_json}")
-                else:
-                     print(f"[Warn] Agent output was not JSON: {clean_json[:50]}...")
+                        pass
             
-            return result_data
+            return out_struct
 
         except Exception as e:
-            print(f"[Error] Task Execution Failed for {app_name}: {e}")
-            return result_data
+            return out_struct
 
     async def compare_prices(self, meds_input, role, apps_filter=None):
-        all_apps = ["Apollo 24|7", "Tata 1mg"]
+        default_apps = ["Apollo 24|7", "Tata 1mg"]
         
+        target_apps = default_apps
         if apps_filter:
-            # Filter logic: simple case-insensitive partial match
-            apps = []
-            for requested in apps_filter:
-                match = next((a for a in all_apps if requested.lower() in a.lower()), None)
-                if match:
-                    apps.append(match)
-                else:
-                    print(f"[Warn] App '{requested}' not supported. Available: {all_apps}")
-            if not apps:
-                print("[Error] No valid apps selected. Using default list.")
-                apps = all_apps
-        else:
-            apps = all_apps
+            target_apps = [
+                found for requested in apps_filter 
+                if (found := next((a for a in default_apps if requested.lower() in a.lower()), None))
+            ] or default_apps
 
-        # Parse medicines
         med_list = []
         if isinstance(meds_input, list):
-             # Expecting list of dicts: [{'name': '...', 'qty': ...}]
-             for item in meds_input:
-                 # Resilient handling if passed as list of strings (legacy) or dicts
-                 if isinstance(item, str):
-                     med_list.append({"name": item, "qty": 1})
-                 elif isinstance(item, dict):
-                     med_list.append(item)
+             med_list = [{"name": m if isinstance(m, str) else m.get("name"), "qty": 1 if isinstance(m, str) else m.get("qty", 1)} for m in meds_input]
         else:
-            # String parsing
             for item in meds_input.split(','):
                 parts = item.strip().split(':')
-                name = parts[0].strip()
-                qty = int(parts[1].strip()) if len(parts) > 1 else 1
-                med_list.append({"name": name, "qty": qty})
+                med_list.append({"name": parts[0].strip(), "qty": int(parts[1].strip()) if len(parts) > 1 else 1})
 
-        print(f"\n[PharmaAgent] processing List: {med_list}")
-        print(f"[PharmaAgent] Apps Selected: {apps}")
+        print(f"\n[PharmaAgent] Processing List: {med_list}")
         
-        app_totals = {} # {app_name: {total_cost: float, items: [details]}}
+        basket_results = {}
 
-        for app in apps:
+        for app in target_apps:
             print(f"\n--- Checking {app} ---")
-            total_cost = 0.0
-            item_details = []
-            all_found = True
-
-            for med in med_list:
-                res = await self.execute_task(app, med['name'], role)
+            
+            total = 0.0
+            items = []
+            complete = True
+            
+            for m in med_list:
+                r = await self.execute_task(app, m['name'], role)
                 
-                if res["status"] == "success":
-                    price = res["numeric_price"]
-                    qty = med['qty']
-                    line_total = price * qty
-                    total_cost += line_total
-                    item_details.append({
-                        "name": med['name'],
-                        "unit_price": price,
-                        "qty": qty,
-                        "line_total": line_total,
-                        "details": res['data'].get("details", "")
+                if r["status"] == "success":
+                    p = r["numeric_price"]
+                    q = m['qty']
+                    sub = p * q
+                    total += sub
+                    items.append({
+                        "name": m['name'], "unit_price": p, "qty": q, "line_total": sub,
+                        "details": r['data'].get("details", "")
                     })
-                    print(f"  > Found {med['name']} @ {price} x {qty} = {line_total}")
+                    print(f"  > Found {m['name']} @ {p} x {q} = {sub}")
                 else:
-                    print(f"  > Failed to find {med['name']}")
-                    all_found = False
-                    break # Stop if one item not found, basket incomplete
+                    print(f"  > Failed to find {m['name']}")
+                    complete = False
+                    break 
                 
-                # Small cooldown between searches
                 await asyncio.sleep(2)
 
-            if all_found:
-                app_totals[app] = {"total_cost": total_cost, "items": item_details}
-            else:
-                app_totals[app] = {"status": "incomplete"}
-                print(f"  > Basket incomplete for {app}")
-            
-            # Cooldown betwen apps
+            basket_results[app] = {"total_cost": total, "items": items} if complete else {"status": "incomplete"}
             await asyncio.sleep(3)
 
         print(f"\n--- Final Aggregated Basket Results ---")
-        best_option = None
-        min_total = float('inf')
-
-        for app, result in app_totals.items():
-            if result.get("status") != "incomplete":
-                total = result["total_cost"]
-                print(f"{app}: Total Basket = ₹{total:.2f}")
-                for item in result["items"]:
-                    print(f"  - {item['name']}: ₹{item['unit_price']} x {item['qty']}")
-                
-                if total < min_total:
-                    min_total = total
-                    best_option = {"app": app, "total": total, "items": result["items"]}
+        
+        valid_baskets = []
+        for app, res in basket_results.items():
+            if res.get("status") != "incomplete":
+                print(f"{app}: Total = ₹{res['total_cost']:.2f}")
+                valid_baskets.append({"app": app, "total": res["total_cost"], "items": res["items"]})
             else:
                 print(f"{app}: Incomplete Basket")
 
-        if best_option:
-            print(f"\n🏆 Best Basket Deal: {best_option['app']} - ₹{best_option['total']:.2f}")
+        if valid_baskets:
+            best = min(valid_baskets, key=lambda x: x["total"])
+            print(f"\n🏆 Best Basket Deal: {best['app']} - ₹{best['total']:.2f}")
         else:
             print("\n❌ Could not determine best basket option.")
 
 async def main():
-    parser = argparse.ArgumentParser(description="Pharmacy Agent (Basket Comparison)")
-    parser.add_argument("--meds", required=True, help="List of medicines 'Name:Qty, Name:Qty'")
-    parser.add_argument("--role", choices=['patient', 'pharmacist'], default='patient', help="User role")
-    parser.add_argument("--apps", help="Comma-separated list of apps to use (e.g., 'Tata, Apollo')")
-    args = parser.parse_args()
+    p = argparse.ArgumentParser()
+    p.add_argument("--meds", required=True)
+    p.add_argument("--role", choices=['patient', 'pharmacist'], default='patient')
+    p.add_argument("--apps")
+    args = p.parse_args()
 
-    apps_filter = [a.strip() for a in args.apps.split(',')] if args.apps else None
+    filter_list = [a.strip() for a in args.apps.split(',')] if args.apps else None
     
     agent = PharmacyAgent(model="models/gemini-2.5-flash")
-    await agent.compare_prices(args.meds, args.role, apps_filter)
+    await agent.compare_prices(args.meds, args.role, filter_list)
 
 if __name__ == "__main__":
-    # if sys.platform == 'win32':
-    #     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
     asyncio.run(main())

@@ -1,4 +1,3 @@
-/* ===== ROOT VARIABLES ===== */
 :root {
     --base-100: #fafafa;
     --base-200: #e8e6e7;
@@ -7,14 +6,12 @@
     --white: #ffffff;
 }
 
-/* ===== RESET ===== */
 * {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
 }
 
-/* ===== BODY & LANDING PAGE ===== */
 body {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     background: var(--white);
@@ -30,7 +27,6 @@ body {
     background: var(--white);
 }
 
-/* ===== SPLINE 3D VIEWER ===== */
 spline-viewer {
     position: fixed;
     top: 0;
@@ -39,11 +35,9 @@ spline-viewer {
     height: 100vh;
     z-index: 10;
     pointer-events: auto;
-    /* Allow clicks to pass through to text if needed, or 'auto' if model needs interaction */
 }
 
 
-/* ===== HERO HEADING - BOLD MULTI-FONT CREATIVE ===== */
 .hero-heading {
     position: fixed;
     top: 50%;
@@ -62,7 +56,6 @@ spline-viewer {
     margin: 0;
     color: #0a0a0f;
     -webkit-text-stroke: 4px transparent;
-    /* Thicken the font */
     letter-spacing: -0.05em;
     opacity: 0;
     transform: translateY(20px);
@@ -72,10 +65,8 @@ spline-viewer {
 .highlight {
     color: red;
     display: inline-block;
-    /* Ensure transforms work on spans */
 }
 
-/* Different font for each line */
 .hero-line:nth-child(1) {
     font-weight: 400;
     animation-delay: 0.2s;
@@ -94,7 +85,6 @@ spline-viewer {
     }
 }
 
-/* ===== DRAGGABLE MENU DRAWER ===== */
 .menu-drawer {
     position: fixed;
     top: 2rem;
@@ -121,7 +111,6 @@ spline-viewer {
     box-shadow: 0 8px 40px rgba(0, 0, 0, 0.15);
 }
 
-/* ===== MENU LOGO ===== */
 .menu-logo {
     width: 10rem;
     height: 5.5rem;
@@ -138,7 +127,6 @@ spline-viewer {
     height: auto;
 }
 
-/* ===== MENU ITEMS ===== */
 .menu-items {
     display: flex;
     gap: 0.35rem;
@@ -198,7 +186,6 @@ spline-viewer {
     color: red;
 }
 
-/* ===== MENU TOGGLER ===== */
 .menu-toggler {
     position: relative;
     width: 5.5rem;
@@ -244,7 +231,6 @@ spline-viewer {
     transform: rotate(-45deg) translateY(-0.35rem);
 }
 
-/* ===== RESPONSIVE ===== */
 @media (max-width: 768px) {
     .landing-title {
         font-size: 2.5rem;

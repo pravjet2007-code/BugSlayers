@@ -1,4 +1,3 @@
-// ===== DRAGGABLE MENU FUNCTIONALITY =====
 
 const menuDrawer = document.getElementById('menuDrawer');
 const menuToggler = document.getElementById('menuToggler');
@@ -11,25 +10,21 @@ let xOffset = 0;
 let yOffset = 0;
 let animationFrameId = null;
 
-// ===== TOGGLE MENU EXPANSION =====
 menuToggler.addEventListener('click', (e) => {
     e.stopPropagation();
     menuDrawer.classList.toggle('expanded');
     menuToggler.classList.toggle('active');
 });
 
-// ===== SMOOTH DRAG FUNCTIONALITY WITH RAF =====
 menuDrawer.addEventListener('mousedown', dragStart, { passive: false });
 document.addEventListener('mousemove', drag, { passive: false });
 document.addEventListener('mouseup', dragEnd);
 
-// Touch events for mobile
 menuDrawer.addEventListener('touchstart', dragStart, { passive: false });
 document.addEventListener('touchmove', drag, { passive: false });
 document.addEventListener('touchend', dragEnd);
 
 function dragStart(e) {
-    // Don't drag if clicking on toggler or menu items
     if (e.target.closest('.menu-toggler') || e.target.closest('.menu-item')) {
         return;
     }
@@ -44,7 +39,7 @@ function dragStart(e) {
 
     isDragging = true;
     menuDrawer.classList.add('dragging');
-    menuDrawer.style.transition = 'none'; // Remove transitions during drag
+    menuDrawer.style.transition = 'none';
 }
 
 function drag(e) {
@@ -52,7 +47,6 @@ function drag(e) {
 
     e.preventDefault();
 
-    // Update current position immediately
     if (e.type === 'touchmove') {
         currentX = e.touches[0].clientX - initialX;
         currentY = e.touches[0].clientY - initialY;
@@ -61,7 +55,6 @@ function drag(e) {
         currentY = e.clientY - initialY;
     }
 
-    // Use requestAnimationFrame for smooth 60fps updates
     if (animationFrameId) {
         cancelAnimationFrame(animationFrameId);
     }
@@ -81,15 +74,12 @@ function dragEnd(e) {
     isDragging = false;
     menuDrawer.classList.remove('dragging');
 
-    // Re-enable transitions
     menuDrawer.style.transition = '';
 
-    // Keep within viewport bounds with smooth animation
     constrainToViewport();
 }
 
 function setTranslate(xPos, yPos, el) {
-    // Use translate3d for hardware acceleration
     el.style.transform = `translate3d(${xPos}px, ${yPos}px, 0)`;
     el.style.willChange = 'transform';
 }
@@ -103,7 +93,6 @@ function constrainToViewport() {
     let newY = yOffset;
     let needsConstrain = false;
 
-    // Check horizontal bounds
     if (rect.left < 0) {
         newX = xOffset - rect.left;
         needsConstrain = true;
@@ -112,7 +101,6 @@ function constrainToViewport() {
         needsConstrain = true;
     }
 
-    // Check vertical bounds
     if (rect.top < 0) {
         newY = yOffset - rect.top;
         needsConstrain = true;
@@ -121,21 +109,18 @@ function constrainToViewport() {
         needsConstrain = true;
     }
 
-    // Apply constrained position with smooth transition
     if (needsConstrain) {
         xOffset = newX;
         yOffset = newY;
         menuDrawer.style.transition = 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
         setTranslate(newX, newY, menuDrawer);
 
-        // Remove transition after animation
         setTimeout(() => {
             menuDrawer.style.transition = '';
         }, 300);
     }
 }
 
-// ===== CLOSE MENU WHEN CLICKING OUTSIDE =====
 document.addEventListener('click', (e) => {
     if (!menuDrawer.contains(e.target) && menuDrawer.classList.contains('expanded')) {
         menuDrawer.classList.remove('expanded');
@@ -143,10 +128,8 @@ document.addEventListener('click', (e) => {
     }
 });
 
-// ===== SMOOTH MENU ITEM CLICKS =====
 document.querySelectorAll('.menu-item a').forEach(link => {
     link.addEventListener('click', (e) => {
-        // Add click feedback
         e.currentTarget.parentElement.style.transform = 'scale(0.95)';
         setTimeout(() => {
             e.currentTarget.parentElement.style.transform = '';
@@ -154,5 +137,4 @@ document.querySelectorAll('.menu-item a').forEach(link => {
     });
 });
 
-// ===== WINDOW RESIZE HANDLER =====
 window.addEventListener('resize', constrainToViewport);

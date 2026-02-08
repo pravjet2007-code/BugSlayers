@@ -1,9 +1,5 @@
-
-// -- app.js --
-
 document.addEventListener("DOMContentLoaded", () => {
 
-    // --- MODE TOGGLE LOGIC ---
     const btnManual = document.getElementById('mode-manual_btn');
     const btnVoice = document.getElementById('mode-voice_btn');
     const viewManual = document.getElementById('mode-manual');
@@ -26,14 +22,11 @@ document.addEventListener("DOMContentLoaded", () => {
     btnManual.addEventListener('click', () => switchMode('manual'));
     btnVoice.addEventListener('click', () => switchMode('voice'));
 
-    // --- WEBSOCKET CONNECTION ---
     const resultWrapper = document.getElementById('result-wrapper');
     const resultMessage = document.getElementById('result-message');
 
     function logStatus(msg) {
         console.log("LOG:", msg);
-        // If in voice mode, maybe append to chat? 
-        // For now, update global status logic if visible
         if (viewManual.style.display !== 'none') {
             resultWrapper.classList.remove('hidden');
             resultMessage.innerHTML = msg.replace(/\n/g, '<br>');
@@ -48,7 +41,6 @@ document.addEventListener("DOMContentLoaded", () => {
             resultMessage.innerHTML = `<span style="color:var(--voice-red)">FAILED</span><br>${result.error || "Unknown Error"}`;
         }
 
-        // If Voice Mode active, speak result
         if (viewVoice.style.display !== 'none' && window.lastVoiceCommand) {
             const spoken = result.message || "Task completed.";
             speak(spoken);
@@ -57,7 +49,6 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
-    // Connect WS
     function connectWebSocket() {
         const ws = new WebSocket('ws://localhost:8002/ws');
         ws.onopen = () => logStatus('Connected to Neural Core.');
@@ -65,7 +56,6 @@ document.addEventListener("DOMContentLoaded", () => {
             try {
                 const parsed = JSON.parse(event.data);
                 if (parsed.type === 'log') {
-                    // logStatus(parsed.message); // Too verbose for main UI?
                 } else if (parsed.type === 'complete') {
                     showResultUI(parsed.result);
                 }
@@ -76,9 +66,6 @@ document.addEventListener("DOMContentLoaded", () => {
     connectWebSocket();
 
 
-    // --- MANUAL MODE: PERSONA SELECTOR LOGIC ---
-
-    // Logic from original script.js adapted here
     const dropdownTrigger = document.getElementById('dropdown-trigger');
     const dropdownOptions = document.querySelector('.dropdown-options');
     const options = document.querySelectorAll('.dropdown-option');
@@ -86,7 +73,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const triggerText = document.querySelector('.selected-text');
     const forms = document.querySelectorAll('.form-content');
 
-    // Default Selection
     selectPersona('shopper');
 
     dropdownTrigger.addEventListener('click', () => {
@@ -102,7 +88,6 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     });
 
-    // Close dropdown if clicking outside
     document.addEventListener('click', (e) => {
         if (!e.target.closest('.custom-dropdown-container')) {
             dropdownOptions.classList.remove('active');
@@ -123,20 +108,17 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
-    // Pill Logic (Rider)
     document.querySelectorAll('.pill-option').forEach(pill => {
         pill.addEventListener('click', function () {
             const parent = this.parentElement;
             parent.querySelectorAll('.pill-option').forEach(p => p.classList.remove('active'));
             this.classList.add('active');
 
-            // Update hidden input if exists
             const hidden = parent.parentElement.querySelector('input[type="hidden"]');
             if (hidden) hidden.value = this.getAttribute('data-value');
         });
     });
 
-    // Dynamic Lists (Guests/Meds)
     const addGuestBtn = document.getElementById('add-guest-btn');
     if (addGuestBtn) {
         addGuestBtn.addEventListener('click', () => {
@@ -156,13 +138,11 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    // EXECUTE BUTTON
     const execBtn = document.getElementById('find-deal-btn');
     execBtn.addEventListener('click', async () => {
         const persona = inputVal.value;
         let payload = { persona: persona };
 
-        // Build Payload based on persona
         if (persona === 'shopper') {
             payload.product = document.getElementById('product-name').value;
         } else if (persona === 'rider') {
@@ -210,13 +190,10 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
 
-    // --- VOICE MODE LOGIC ---
-
     const bigMicBtn = document.getElementById('big-mic-btn');
     const voiceStatus = document.getElementById('voice-status-text');
     const chatDisplay = document.getElementById('chat-display');
 
-    // TTS
     const synth = window.speechSynthesis;
     function speak(text) {
         if (synth.speaking) synth.cancel();
@@ -224,7 +201,6 @@ document.addEventListener("DOMContentLoaded", () => {
         utterance.pitch = 1;
         utterance.rate = 1;
 
-        // Visual Feedback
         bigMicBtn.classList.add('speaking');
         utterance.onend = () => bigMicBtn.classList.remove('speaking');
 
@@ -239,36 +215,30 @@ document.addEventListener("DOMContentLoaded", () => {
         chatDisplay.scrollTop = chatDisplay.scrollHeight;
     }
 
-    // --- ROBUST SPEECH RECOGNITION (VAD & STATE MACHINE) ---
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     let recognition;
 
     if (SpeechRecognition) {
         recognition = new SpeechRecognition();
-        recognition.continuous = true; // KEEP LISTENING
-        recognition.interimResults = true; // Show text as you speak
-        recognition.lang = 'en-US'; // Critical for ensuring correct server connection
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.lang = 'en-US';
 
-        // --- CONFIGURATION ---
-        const SILENCE_DELAY = 2500; // 2.5 seconds of silence to finalize
+        const SILENCE_DELAY = 2500;
 
-        // --- STATE MANAGEMENT ---
-        let logicalListeningState = false; // The source of truth for "Are we in a session?"
+        let logicalListeningState = false;
         let silenceTimeoutId = null;
         let finalTranscript = '';
 
-        // --- CONTROL FUNCTIONS ---
         window.startSession = function () {
             if (logicalListeningState) return;
 
             logicalListeningState = true;
             finalTranscript = '';
 
-            // Update UI
             bigMicBtn.classList.add('listening');
             voiceStatus.textContent = "Listening...";
 
-            // Start API
             try {
                 recognition.start();
             } catch (e) {
@@ -281,14 +251,11 @@ document.addEventListener("DOMContentLoaded", () => {
             logicalListeningState = false;
             clearTimeout(silenceTimeoutId);
 
-            // Stop API
             recognition.stop();
 
-            // Update UI
             bigMicBtn.classList.remove('listening');
             voiceStatus.textContent = "Processing...";
 
-            // Process Result
             const textToSend = finalTranscript.trim();
             if (textToSend.length > 0) {
                 sendVoiceToBackend(textToSend);
@@ -297,25 +264,21 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         };
 
-        // Button Handler
         bigMicBtn.addEventListener('click', () => {
             if (logicalListeningState) {
-                window.endSession(); // Manual Stop
+                window.endSession();
             } else {
-                window.startSession(); // Manual Start
+                window.startSession();
             }
         });
 
-        // --- EVENTS ---
         recognition.onstart = () => {
             console.log("API: Started");
         };
 
         recognition.onerror = (event) => {
             console.error("Speech Error", event.error);
-            // Ignore 'no-speech' and 'aborted' (tab conflict)
             if (event.error !== 'no-speech' && event.error !== 'aborted') {
-                // Revert to generic message as requested ("try to make sothing that works like that")
                 voiceStatus.textContent = "Error listening. Try again.";
             }
         };
@@ -323,13 +286,11 @@ document.addEventListener("DOMContentLoaded", () => {
         recognition.onend = () => {
             console.log("API: Ended. Logical State:", logicalListeningState);
             if (logicalListeningState) {
-                // Browser stopped, but we want to keep listening (Seamless Restart)
                 console.log("Creating seamless restart...");
                 try {
                     recognition.start();
                 } catch (e) {
                     console.error("Restart failed:", e);
-                    // If we can't restart, we must abort
                     logicalListeningState = false;
                     voiceStatus.textContent = "Error: Mic stopped unexpectedly.";
                     bigMicBtn.classList.remove('listening');
@@ -348,14 +309,10 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
             }
 
-            // Visual Update: Show exactly what is being heard
-            // Just like accessibility.html: "Listening..." is replaced by actual text
             const currentText = finalTranscript + interimTranscript;
             const display = currentText.trim().length > 0 ? currentText : "Listening...";
-            // Show result in the status text, trimmed to fit
             voiceStatus.textContent = display.slice(-100);
 
-            // RESET SILENCE TIMER
             clearTimeout(silenceTimeoutId);
             silenceTimeoutId = setTimeout(() => {
                 console.log("Silence limit reached. Auto-submitting.");
@@ -363,7 +320,6 @@ document.addEventListener("DOMContentLoaded", () => {
             }, SILENCE_DELAY);
         };
 
-        // Backend Communication
         async function sendVoiceToBackend(text) {
             voiceStatus.textContent = "Thinking...";
             addChatMessage(text, 'user');
@@ -395,4 +351,4 @@ document.addEventListener("DOMContentLoaded", () => {
         voiceStatus.textContent = "Voice not supported in this browser.";
     }
 
-}); // DOMContentLoaded
+}); 

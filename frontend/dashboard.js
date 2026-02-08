@@ -1,5 +1,4 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // DOM Elements
     const tasksGrid = document.getElementById('tasks-grid');
     const modal = document.getElementById('task-modal');
     const modalTitle = document.getElementById('modal-title');
@@ -12,27 +11,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const connectionStatus = document.getElementById('connection-status');
     const statusDot = document.querySelector('.status-dot');
 
-    // Cursor Elements
-
-
-    // State
     let activeTaskId = null;
-    let tasks = {}; // { taskId: taskData }
+    let tasks = {};
 
-    // --- Init ---
     init();
 
     function init() {
 
-        initAnimations(); // Intro Animations
+        initAnimations();
         fetchTasks();
         connectWebSocket();
         mermaid.initialize({ startOnLoad: false });
     }
 
-    // --- Animations ---
     function initAnimations() {
-        // 1. Header Text Split & Reveal
         const h1 = document.querySelector('.dashboard-header h1');
         if (h1) {
             h1.innerHTML = splitTextToSpans(h1.textContent);
@@ -46,7 +38,6 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
-        // 2. Line Expansion
         gsap.to('.header-line', {
             width: '60px',
             duration: 1.5,
@@ -54,7 +45,6 @@ document.addEventListener('DOMContentLoaded', () => {
             delay: 1
         });
 
-        // 3. Status Fade In
         gsap.from('.status-indicator', {
             x: 20,
             opacity: 0,
@@ -63,7 +53,6 @@ document.addEventListener('DOMContentLoaded', () => {
             delay: 0.8
         });
 
-        // 4. Back Link Fade In
         gsap.from('.back-link', {
             x: -20,
             opacity: 0,
@@ -79,10 +68,6 @@ document.addEventListener('DOMContentLoaded', () => {
         ).join('');
     }
 
-    // --- Custom Cursor ---
-
-
-    // --- Data Fetching ---
     async function fetchTasks() {
         try {
             const response = await fetch('http://localhost:8000/tasks');
@@ -96,7 +81,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 data.forEach((task, index) => {
                     tasks[task.id] = task;
-                    createTaskCard(task, index); // Pass index for stagger
+                    createTaskCard(task, index);
                 });
             }
             feather.replace();
@@ -112,7 +97,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 <p>No active missions. Deploy an agent to see data here.</p>
             </div>
         `;
-        // Animate Empty State
         gsap.from('.empty-state', {
             y: 30,
             opacity: 0,
@@ -122,7 +106,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- UI Rendering ---
     function createTaskCard(task, index = 0) {
         if (tasksGrid.querySelector('.empty-state')) {
             tasksGrid.innerHTML = '';
@@ -132,8 +115,6 @@ document.addEventListener('DOMContentLoaded', () => {
         card.id = `card-${task.id}`;
         card.className = `task-card ${task.status}`;
         card.onclick = () => openTaskModal(task.id);
-
-
 
         const icon = getPersonaIcon(task.persona);
 
@@ -157,9 +138,8 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
         `;
 
-        tasksGrid.prepend(card); // Newest first
+        tasksGrid.prepend(card);
 
-        // GSAP Entrance (Staggered based on index or just simple entry)
         gsap.fromTo(card,
             { y: 100, opacity: 0, rotationX: 10, scale: 0.9 },
             {
@@ -169,11 +149,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 scale: 1,
                 duration: 1,
                 ease: "power4.out",
-                clearProps: "all" // Clear transform to allow hover
+                clearProps: "all"
             }
         );
 
-        // Advanced Hover Effect 
         card.addEventListener('mousemove', (e) => {
             const rect = card.getBoundingClientRect();
             const x = e.clientX - rect.left;
@@ -228,7 +207,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- Modal Logic ---
     function openTaskModal(taskId) {
         const task = tasks[taskId];
         if (!task) return;
@@ -247,7 +225,6 @@ document.addEventListener('DOMContentLoaded', () => {
             consoleOutput.innerHTML = '<div class="log-line system">> Waiting for Uplink...</div>';
         }
 
-        // Show Result if done
         if (task.status === 'success' || task.status === 'failed') {
             showResult(task.result);
             resultArea.classList.remove('hidden');
@@ -255,10 +232,7 @@ document.addEventListener('DOMContentLoaded', () => {
             resultArea.classList.add('hidden');
         }
 
-        // Modal Entrance Animation
         modal.classList.remove('hidden');
-        // IMPORTANT: Add 'active' to ensure opacity is 1 and pointer-events auto
-        // Use timeout to allow display:flex to apply first
         requestAnimationFrame(() => {
             modal.classList.add('active');
             gsap.fromTo('.modal-content',
@@ -278,12 +252,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 setTimeout(() => {
                     modal.classList.add('hidden');
                     activeTaskId = null;
-                }, 300); // Wait for CSS transition if any
+                }, 300);
             }
         });
     }
 
-    // Event Listeners for Modal
     closeModalBtn.addEventListener('click', closeModal);
     modal.addEventListener('click', (e) => {
         if (e.target === modal) closeModal();
@@ -306,7 +279,6 @@ document.addEventListener('DOMContentLoaded', () => {
         else if (message.includes('Itinerary')) icon = '🗺️';
 
         line.innerHTML = `${icon} <span style="margin-left: 8px;">${message}</span>`;
-        // Re-render feather icons if any added
         if (line.innerHTML.includes('data-feather')) feather.replace();
 
         consoleOutput.appendChild(line);
@@ -320,14 +292,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!result) return;
 
         resultArea.classList.remove('hidden');
-        resultJson.innerHTML = ''; // Clear raw JSON container
+        resultJson.innerHTML = '';
 
-        // 1. Render Trip Plan (Traveller)
         if (result.flight || result.hotel) {
             const container = document.createElement('div');
             container.className = 'trip-result-container';
 
-            // Mermaid Diagram
             if (result.flowchart_code) {
                 const mmDiv = document.createElement('div');
                 mmDiv.className = 'mermaid-visualizer';
@@ -335,11 +305,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 container.appendChild(mmDiv);
             }
 
-            // Cards Grid
             const cards = document.createElement('div');
             cards.className = 'trip-cards';
 
-            // Flight Card
             if (result.flight) {
                 cards.innerHTML += `
                     <div class="trip-card flight">
@@ -354,7 +322,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>`;
             }
 
-            // Hotel Card
             if (result.hotel) {
                 cards.innerHTML += `
                     <div class="trip-card hotel">
@@ -367,7 +334,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>`;
             }
 
-            // Cab Card
             if (result.arrival_cab) {
                 cards.innerHTML += `
                     <div class="trip-card cab">
@@ -383,7 +349,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
             container.appendChild(cards);
 
-            // Itinerary
             if (result.daily_schedule && result.daily_schedule.length > 0) {
                 const itContainer = document.createElement('div');
                 itContainer.className = 'itinerary-container';
@@ -409,28 +374,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 container.appendChild(itContainer);
             }
 
-            // Append all constructed UI
             resultJson.appendChild(container);
 
-            // Render Mermaid
             if (result.flowchart_code) {
                 setTimeout(() => mermaid.init(undefined, document.querySelectorAll('.mermaid-visualizer')), 100);
             }
 
         } else {
-            // Default Raw View for other agents
             resultJson.textContent = JSON.stringify(result, null, 2);
         }
     }
 
-    // --- WebSocket ---
     function connectWebSocket() {
         const ws = new WebSocket('ws://localhost:8000/ws');
 
         ws.onopen = () => {
             connectionStatus.textContent = 'ONLINE';
             statusDot.classList.add('pulse');
-            statusDot.style.backgroundColor = '#000'; // Black for connected in light mode
+            statusDot.style.backgroundColor = '#000';
         };
 
         ws.onmessage = (event) => {
@@ -483,7 +444,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- Helpers ---
     function capitalize(str) {
         return str ? str.charAt(0).toUpperCase() + str.slice(1) : '';
     }

@@ -1,8 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // --- SETUP: PLUGINS & UTILS ---
     gsap.registerPlugin(ScrollTrigger, TextPlugin);
 
-    // Lenis Smooth Scroll
     const lenis = new Lenis({
         duration: 1.2,
         easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
@@ -15,20 +13,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     requestAnimationFrame(raf);
 
-    // Helper: Simulated SplitText (for Hero)
     function wrapCharacters(element) {
         if (!element) return;
         const text = element.innerText;
         element.innerHTML = text.split('').map(char => `<span class="char">${char}</span>`).join('');
     }
 
-    // --- ANIMATIONS ---
-
-    // 1. Hero Reveal
     const heroTitle = document.querySelector('.hero-title');
-    // We can't actually use SplitText plugin as it's paid and likely not in the CDN above without key
-    // So we use a simple opacity fade-up for now, or the helper if we want chars.
-    // Let's stick to clean Y-axis reveals for words.
 
     const tl = gsap.timeline();
     tl.from('.hero-title', {
@@ -56,7 +47,6 @@ document.addEventListener('DOMContentLoaded', () => {
             ease: 'back.out(1.7)'
         }, '-=0.4');
 
-    // 2. Features Staircase
     const features = document.querySelectorAll('.feature-item');
     if (features.length > 0) {
         gsap.from(features, {
@@ -72,7 +62,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // 3. Demo Section Parallax/Reveal
     gsap.from('.demo-section', {
         scrollTrigger: {
             trigger: '.demo-section',
@@ -83,10 +72,6 @@ document.addEventListener('DOMContentLoaded', () => {
         duration: 1.2,
         ease: 'power2.out'
     });
-
-
-    // --- ORIGINAL FUNCTIONALITY: PERSONA SELECTOR ---
-    // (Preserved IDs and Logic from original file)
 
     const hiddenInput = document.getElementById('persona-select-value');
     const dropdownTrigger = document.getElementById('dropdown-trigger');
@@ -104,7 +89,6 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     const findDealBtn = document.getElementById('find-deal-btn');
 
-    // Dropdown Interaction
     if (dropdownTrigger && dropdownOptions) {
         dropdownTrigger.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -133,7 +117,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function switchForm(persona) {
-        // Update Button Text
         const btnText = findDealBtn.querySelector('.btn-text');
         let newText = "Execute (" + persona + ")";
         if (persona === 'traveller') newText = "Plan Trip";
@@ -146,7 +129,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        // Switch Forms
         Object.values(forms).forEach(f => {
             if (!f.classList.contains('hidden')) {
                 gsap.to(f, {
@@ -166,8 +148,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-
-    // --- DYNAMIC INPUT HANDLERS (Event Delegation) ---
     formContainer.addEventListener('click', (e) => {
         if (e.target.closest('#add-guest-btn')) {
             const container = document.getElementById('guest-list-container');
@@ -192,7 +172,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Pill and Toggle Logic for Rider/Foodie
     const riderPills = document.querySelectorAll('#rider-preferences .pill-option');
     const riderPrefInput = document.getElementById('rider-preference-value');
     riderPills.forEach(pill => {
@@ -203,7 +182,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // --- SUBMISSION LOGIC ---
     if (findDealBtn) {
         findDealBtn.addEventListener('click', async () => {
             const persona = hiddenInput.value;
@@ -212,7 +190,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            // Reconstruct Payload Logic (Identical to original)
             const payload = { persona: persona, timestamp: new Date().toISOString() };
 
             if (persona === 'shopper') {
@@ -251,8 +228,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
             logStatus("Sending task...");
             try {
-                // Post to 'create task' endpoint - Assuming existing server.py is still running
-                // Note: Original was to http://localhost:8000/task
                 await fetch('http://localhost:8002/task', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -264,10 +239,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-
-    // --- WEBSOCKET CONNECTION ---
     function connectWebSocket() {
-        const ws = new WebSocket('ws://localhost:8002/ws'); // Ensure port matches server (8002 from server.py content)
+        const ws = new WebSocket('ws://localhost:8002/ws');
         ws.onopen = () => logStatus('Connected to Neural Core.');
         ws.onmessage = (event) => {
             try {
@@ -276,7 +249,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     logStatus(parsed.message);
                 } else if (parsed.type === 'complete') {
                     showResultUI(parsed.result);
-                    // If voice was active, maybe speak result?
                     if (window.lastVoiceCommand) {
                         speak("Task complete. " + (parsed.result.message || "Operation successful."));
                         window.lastVoiceCommand = false;
@@ -288,8 +260,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     connectWebSocket();
 
-
-    // --- VOICE AGENT INTEGRATION ---
     const voiceTrigger = document.getElementById('voice-trigger');
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
@@ -314,12 +284,9 @@ document.addEventListener('DOMContentLoaded', () => {
             console.log("Voice Command:", transcript);
             logStatus(`Voice Input: "${transcript}"`);
 
-            // Send to Chat API
             window.lastVoiceCommand = true;
 
             try {
-                // Call the /api/chat endpoint from server.py adaptation
-                // Actually server.py has /api/chat which uses GeneralAgent
                 const response = await fetch('http://localhost:8002/api/chat', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -332,7 +299,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 const data = await response.json();
                 console.log("AI Response:", data);
 
-                // If it's a direct conversational response
                 if (data.response) {
                     speak(data.response);
                     logStatus("AI: " + data.response);
@@ -353,7 +319,7 @@ document.addEventListener('DOMContentLoaded', () => {
             voiceTrigger.classList.remove('voice-active');
         };
     } else {
-        if (voiceTrigger) voiceTrigger.style.display = 'none'; // Hide if not supported
+        if (voiceTrigger) voiceTrigger.style.display = 'none';
     }
 
     function speak(text) {
@@ -361,8 +327,6 @@ document.addEventListener('DOMContentLoaded', () => {
         window.speechSynthesis.speak(utterance);
     }
 
-
-    // --- UI UTILS ---
     function logStatus(msg, type = 'info') {
         const consoleEl = document.getElementById('result-message');
         if (consoleEl) consoleEl.textContent = msg;

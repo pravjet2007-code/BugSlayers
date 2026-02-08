@@ -6,293 +6,191 @@ import re
 import sys
 from typing import Optional
 from dotenv import load_dotenv
-
 import asyncio.subprocess
-# try:
 from droidrun.agent.droid.droid_agent import DroidAgent
 from droidrun import AdbTools
-# except ImportError:
-#     print("CRITICAL ERROR: 'droidrun' library not found or incompatible version.")
-#     print("Please ensure you have installed it: pip install droidrun")
-#     sys.exit(1)
 
-# Load environment variables
 load_dotenv()
 
 class CommerceAgent:
-    """
-    Professional Commerce Agent using DroidRun Framework.
-    Follows the 'Brain' (Host) and 'Senses' (Portal) architecture.
-    """
-    
     def __init__(self, provider="gemini", model="gemini-1.5-flash"):
         self.provider = provider
         self.model = model
         self._ensure_api_keys()
 
     def _ensure_api_keys(self):
-        if self.provider == "gemini" and not os.getenv("GEMINI_API_KEY") and not os.getenv("GOOGLE_API_KEY"):
-             # Fallback check
+        keys = ["GEMINI_API_KEY", "GOOGLE_API_KEY"]
+        if self.provider == "gemini" and not any(os.getenv(k) for k in keys):
              print("[Warn] GEMINI_API_KEY not found in env, checking GOOGLE_API_KEY")
 
     def _parse_price(self, price_str):
-        """Robust price parsing utility."""
-        if not price_str: return float('inf')
+        if not price_str: 
+            return float('inf')
         try:
-            raw = str(price_str).strip()
-            # print(f"[DEBUG] Parsing Price Raw: '{raw}'") # User requested investigation of mismatched logs
-            
-            clean = raw.lower().replace(',', '').replace('₹', '').replace('rs', '').replace('rs.', '').strip()
-            match = re.search(r'\d+(\.\d+)?', clean)
-            
-            if match:
-                 val = float(match.group())
-                 # print(f"[DEBUG] Parsed Value: {val}")
-                 return val
-            else:
-                 print(f"[Warn] Could not extract number from price string: '{raw}'")
-                 return float('inf')
-        except Exception as e:
-            print(f"[Error] Price Parse Failed for '{price_str}': {e}")
+            val_str = str(price_str).lower()
+            filtered = ''.join([c for c in val_str if c.isdigit() or c == '.'])
+            if not filtered:
+                return float('inf')
+            return float(filtered)
+        except Exception:
             return float('inf')
 
     async def execute_task(self, app_name: str, query: Optional[str] = None, item_type: str = "product", action: str = "search", target_item: Optional[str] = None, url: Optional[str] = None) -> dict:
-        """
-        Spawns a DroidAgent to execute a specific commerce task.
-        Uses Vision capabilities for better UI understanding.
-        Action: 'search' (compare prices) or 'order' (buy item via COD).
-        """
         print(f"\n[CommerceAgent] Initializing Task for: {app_name} (Action: {action})")
         
-        # 1. Define Goal (Natural Language with Structural Constraints)
-        if url:
-            goal = (
-                f"Open the app '{app_name}'. "
-                f"Navigate directly to the URL: '{url}'. "
-                f"Wait for the page to load. "
-                f"Visually SCAN the product details page. "
-                f"Extract the following details for the item: "
-                f"1. Product Name (title) "
-                f"2. Price (numeric value) "
-                f"3. Rating "
-                f"4. Restaurant Name "
-                f"Return a strict JSON object with keys: 'title', 'price', 'rating', 'restaurant'. "
-                f"If the page fails to load or details cannot be found, return status='failed'. "
+        goal_templates = {
+            "url": (
+                f"Open the app '{app_name}'. Navigate directly to the URL: '{url}'. "
+                f"Wait for loading. Visually SCAN the page. "
+                f"Extract: 1. Product Name (title), 2. Price (numeric), 3. Rating, 4. Restaurant/Seller Name. "
+                f"Return JSON with keys: 'title', 'price', 'rating', 'restaurant'. "
+                f"If unavailable, return status='failed'."
+            ),
+            "order": (
+                f"Open '{app_name}'. Search for '{query}'. Wait for results. "
+                f"Visually SCAN and select the item '{target_item}' or the first relevant one. "
+                f"Add to Cart. Go to View Cart. Proceed to Pay/Checkout. "
+                f"Select 'Cash on Delivery' or 'Pay on Delivery'. "
+                f"CRITICAL: Finalize the order by clicking 'Place Order' or 'Confirm'. "
+                f"Return JSON keys: 'status' (success/failed), 'order_id', 'final_price'."
+            ),
+            "search": (
+                f"Open '{app_name}'. Search for '{query}'. Wait for load. "
+                f"Visually SCAN results. Identify multiple items matching '{query}'. "
+                f"COMPARE prices. Select the CHEAPEST option. "
+                f"Extract: 1. Title, 2. Price, 3. Rating, 4. Restaurant. "
+                f"Return JSON keys: 'title', 'price', 'rating', 'restaurant'. "
+                f"Find closest match if no exact match."
             )
-        elif action == "order":
-            item_instruction = f"find the item '{target_item}'" if target_item else "Select the first relevant item"
-            goal = (
-                f"Open the app '{app_name}'. "
-                f"Search for '{query}'. "
-                f"Wait for results. "
-                f"Visually SCAN and {item_instruction}. "
-                f"Click 'Add' or 'Add to Cart'. "
-                f"Go to View Cart. "
-                f"Click 'Proceed to Pay' or 'Checkout'. "
-                f"Select 'Cash on Delivery' (COD) or 'Pay on Delivery'. "
-                f"CRITICAL: Click 'Place Order', 'Confirm Order', or 'Swipe to Pay' to finalize the booking. "
-                f"Return a strict JSON object with keys: 'status' (success/failed), 'order_id', 'final_price'. "
-            )
-        else:
-            goal = (
-                f"Open the app '{app_name}'. "
-                f"Search for '{query}'. "
-                f"Wait for the search results to load. "
-                f"Visually SCAN the search results. "
-                f"Identify multiple items matching '{query}'. "
-                f"COMPARE their prices and Select the CHEAPEST option. "
-                f"Extract the following details for the CHEAPEST item: "
-                f"1. Product Name (title) "
-                f"2. Price (numeric value) "
-                f"3. Rating "
-                f"4. Restaurant Name "
-                f"Return a strict JSON object with keys: 'title', 'price', 'rating', 'restaurant'. "
-                f"If no exact match is found, find the closest match. "
-            )
+        }
 
-        # 2. Configure Agent (Professional Pattern)
-        # Using load_llm to avoid DroidrunConfig error
+        if url:
+            goal = goal_templates["url"]
+        elif action == "order":
+            goal = goal_templates["order"]
+        else:
+            goal = goal_templates["search"]
+
         from droidrun.agent.utils.llm_picker import load_llm
 
-        api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+        key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
         llm = load_llm(
             provider_name="GoogleGenAI",
             model=self.model,
-            api_key=api_key
+            api_key=key
         )
 
-        # Instantiate DroidAgent using proper Config (v0.3.2 style)
         try:
              from droidrun.config_manager import DroidrunConfig, AgentConfig, ManagerConfig, ExecutorConfig, TelemetryConfig
-             
-             manager_config = ManagerConfig(vision=True)
-             executor_config = ExecutorConfig(vision=True)
-             agent_config = AgentConfig(reasoning=False, manager=manager_config, executor=executor_config)
-             telemetry_config = TelemetryConfig(enabled=False)
-             config = DroidrunConfig(agent=agent_config, telemetry=telemetry_config)
-             
-             agent = DroidAgent(
-                goal=goal,
-                llms=llm,
-                config=config
+             config = DroidrunConfig(
+                 agent=AgentConfig(
+                     reasoning=False, 
+                     manager=ManagerConfig(vision=True), 
+                     executor=ExecutorConfig(vision=True)
+                 ), 
+                 telemetry=TelemetryConfig(enabled=False)
              )
+             agent = DroidAgent(goal=goal, llms=llm, config=config)
         except ImportError:
-             print("Fallback: Config classes not found, trying legacy init...")
-             agent = DroidAgent(
-                goal=goal,
-                llm=llm,
-                vision=True,
-                reasoning=False
-             )
+             agent = DroidAgent(goal=goal, llm=llm, vision=True, reasoning=False)
 
-        # 3. Execute
-        start_data = {"platform": app_name, "status": "failed", "data": {}}
+        output_payload = {"platform": app_name, "status": "failed", "data": {}}
+        
         try:
             print(f"[CommerceAgent] 🧠 Running Agent Logic...")
-            result = await agent.run()
-            print(f"[DEBUG] Raw Agent Result type: {type(result)}")
-            print(f"[DEBUG] Raw Agent Result: {result}")
+            raw_result = await agent.run()
             
-            # 4. Parse Output
-            if result:
-                # Handle DroidAgent Event objects
-                if hasattr(result, 'reason'):
-                     clean_json = str(result.reason).strip()
-                else:
-                     clean_json = str(result).strip()
+            if raw_result:
+                text_res = str(getattr(raw_result, 'reason', raw_result)).strip()
                 
-                print(f"[DEBUG] Processing result string: {clean_json[:100]}...")
-
-                # XML tag cleanup (common with DroidRun Reasoning)
-                if "<request_accomplished" in clean_json:
+                if "<request_accomplished" in text_res:
+                    parts = text_res.split(">")
+                    if len(parts) > 1:
+                        text_res = parts[1].split("</request_accomplished>")[0].strip()
+                
+                if "```" in text_res:
+                    content = text_res.split("```")
+                    text_res = content[1] if len(content) > 1 else text_res
+                    if text_res.startswith("json"):
+                        text_res = text_res[4:].strip()
+                
+                text_res = text_res.strip()
+                
+                if text_res.startswith("{"):
                     try:
-                        clean_json = clean_json.split(">")[1].split("</request_accomplished>")[0].strip()
-                    except IndexError:
-                        pass
-                
-                # Markdown cleanup
-                if "```json" in clean_json:
-                    clean_json = clean_json.split("```json")[1].split("```")[0].strip()
-                elif "```" in clean_json:
-                    clean_json = clean_json.split("```")[1].split("```")[0].strip()
-                
-                # Heuristic validation
-                if clean_json.startswith("{"):
-                    try:
-                         data = json.loads(clean_json)
-                         start_data["data"] = data
-                         start_data["status"] = "success"
-                         start_data["data"]["numeric_price"] = self._parse_price(data.get("price"))
-                         # Ensure restaurant key exists
-                         if "restaurant" not in start_data["data"]:
-                              start_data["data"]["restaurant"] = "Unknown"
+                         parsed = json.loads(text_res)
+                         output_payload["data"] = parsed
+                         output_payload["status"] = "success"
+                         output_payload["data"]["numeric_price"] = self._parse_price(parsed.get("price"))
+                         output_payload["data"].setdefault("restaurant", "Unknown")
                     except json.JSONDecodeError:
-                         print(f"[Warn] JSON Decode Error: {clean_json}")
-                else:
-                     print(f"[Warn] Agent output was not JSON: {clean_json[:50]}...")
-            else:
-                 print("[Warn] Agent returned None result.")
+                         pass
             
-            return start_data
+            return output_payload
 
         except Exception as e:
-            print(f"[Error] Task Execution Failed: {e}")
-            return start_data
+            return output_payload
 
     async def auto_order_cheapest(self, query):
-        """
-        High-level method to Find Cheapest Food -> Order It.
-        """
         print(f"\n[CommerceAgent] 🤖 Autonomous Ordering Sequence Initiated for: '{query}'")
         
-        # 1. Compare Prices
         platforms = ["Zomato", "Swiggy"]
-        results = {}
+        search_results = {}
         
-        for platform in platforms:
-            res = await self.execute_task(platform, query, "food item", action="search")
-            results[platform.lower()] = res
+        for p in platforms:
+            search_results[p.lower()] = await self.execute_task(p, query, "food item", action="search")
             await asyncio.sleep(2)
 
-        # 2. Determine Victor
-        z_price = float('inf')
-        s_price = float('inf')
+        valid_results = [
+            (p, res) for p, res in search_results.items() 
+            if res.get('status') == 'success' and res['data'].get('numeric_price', float('inf')) != float('inf')
+        ]
         
-        if results.get('zomato', {}).get('status') == 'success':
-            z_price = results['zomato']['data'].get('numeric_price', float('inf'))
-            
-        if results.get('swiggy', {}).get('status') == 'success':
-             s_price = results['swiggy']['data'].get('numeric_price', float('inf'))
-             
-        victor = None
-        target_app = None
-        target_title = None
-        
-        if z_price < s_price:
-            victor = results['zomato']
-            target_app = "Zomato"
-            target_title = victor['data'].get('title')
-        elif s_price < z_price:
-             victor = results['swiggy']
-             target_app = "Swiggy"
-             target_title = victor['data'].get('title')
-        elif s_price == z_price and s_price != float('inf'):
-             target_app = "Swiggy" # Default to Swiggy on tie
-             victor = results['swiggy']
-             target_title = victor['data'].get('title')
-        
-        if not target_app:
-             print("\n❌ Could not determine valid pricing on either app. Aborting order.")
-             return results
+        if not valid_results:
+             print("\n❌ Could not determine valid pricing. Aborting.")
+             return search_results
 
-        print(f"\n[CommerceAgent] 🏆 Best Deal identify: {target_app} @ {victor['data'].get('price')}")
+        best_platform, best_res = min(valid_results, key=lambda x: x[1]['data']['numeric_price'])
+        
+        target_app = "Zomato" if best_platform == "zomato" else "Swiggy"
+        target_title = best_res['data'].get('title')
+        best_price = best_res['data'].get('price')
+
+        print(f"\n[CommerceAgent] 🏆 Best Deal identify: {target_app} @ {best_price}")
         print(f"Details: {target_title}")
         print(f"Proceeding to ORDER on {target_app}...")
         
-        # 3. Order
-        # We perform the order action on the winning app with specific target
-        booking_result = await self.execute_task(target_app, query, "food item", action="order", target_item=target_title)
+        booking_out = await self.execute_task(target_app, query, "food item", action="order", target_item=target_title)
         
-        results["order_status"] = booking_result
-        return results
+        search_results["order_status"] = booking_out
+        return search_results
 
 async def main():
     parser = argparse.ArgumentParser(description="BestBuy-Agent: Commerce Automation (DroidRun)")
     parser.add_argument("--task", choices=['shopping', 'food'], default='shopping')
     parser.add_argument("--query", required=True)
     parser.add_argument("--action", choices=['search', 'order'], default='search', help="Action to perform")
-    parser.add_argument("--app", help="Specific app to use (e.g., Swiggy, Zomato)")
+    parser.add_argument("--app", help="App name")
     args = parser.parse_args()
 
-    # Initialize Controller
-    commerce_bot = CommerceAgent(provider="gemini", model="models/gemini-2.5-flash")
+    bot = CommerceAgent(provider="gemini", model="models/gemini-2.5-flash")
     
-    # Workflow Logic
     if args.action == "order" and not args.app:
-        # Autonomous Comparative Ordering
-        await commerce_bot.auto_order_cheapest(args.query)
+        await bot.auto_order_cheapest(args.query)
     else:
-        # Standard Execution (Search or Specific App Order)
-        if args.task == "shopping":
-            platforms = ["Amazon", "Flipkart"]
-            item_type = "product"
-        else:
-            platforms = ["Zomato", "Swiggy"]
-            item_type = "food item"
+        target_platforms = ["Zomato", "Swiggy"] if args.task == "food" else ["Amazon", "Flipkart"]
         
         if args.app:
-            platforms = [p for p in platforms if p.lower() == args.app.lower()]
+            target_platforms = [p for p in target_platforms if p.lower() == args.app.lower()]
 
-        results = {}
-        for platform in platforms:
-            res = await commerce_bot.execute_task(platform, args.query, item_type, action=args.action)
-            results[platform.lower()] = res
+        final_res = {}
+        for p in target_platforms:
+            res = await bot.execute_task(p, args.query, "product" if args.task == "shopping" else "food item", action=args.action)
+            final_res[p.lower()] = res
             await asyncio.sleep(2)
             
         print("\n--- Final Results ---")
-        print(json.dumps(results, indent=2))
+        print(json.dumps(final_res, indent=2))
 
 if __name__ == "__main__":
-    # if sys.platform == 'win32':
-    #     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
     asyncio.run(main())
